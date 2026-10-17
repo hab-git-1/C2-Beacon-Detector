@@ -1,13 +1,36 @@
-# C2 Beacon Detector
+# C2 Beacon Detector Web Dashboard
 
-A Python-based network proxy log analysis tool designed to detect Command and Control (C2) beaconing patterns (such as regular sleep intervals and uniform response payload sizes). Inspired by threat analysis concepts from Dominic Chell's *"Hiding in Plain Sight"* talk.
+An interactive, web-based proxy log analysis tool designed to detect Command and Control (C2) beaconing behavior (such as regular sleep intervals and uniform response payload sizes). Inspired by threat analysis concepts from Dominic Chell's *"Hiding in Plain Sight"* talk.
 
-## Features
+---
+
+## Key Features
+
+- **Log Upload & Parsing:** Upload proxy log datasets (CSV) directly through the interactive web dashboard.
 - **Time Delta Analysis:** Calculates time differences between consecutive requests to identify consistent sleep cycles.
-- **Statistical Filtering:** Uses standard deviation metrics to spot low-variance beaconing behavior.
-- **Command-Line Interface:** Easily pass custom log datasets using the `--log` flag.
+- **Statistical Filtering:** Leverages standard deviation metrics to spot low-variance beaconing patterns.
+- **Dynamic Threshold Controls:** Interactive sidebar sliders allow real-time tuning of detection sensitivity.
 
-## Installation & Requirements
-Ensure you have Python 3 and the required libraries installed:
+---
+
+## Tech Stack
+
+- **Python 3**
+- **Streamlit** (Web Application Framework)
+- **Pandas** (Data Manipulation & Log Analysis)
+- **NumPy** (Statistical Calculation)
+
+---
+
+## Getting Started
+
+### 1. Clone the Repository & Setup Environment
+Clone the project and set up an isolated Python virtual environment:
+
 ```bash
-pip install -r requirements.txt
+git clone [https://github.com/hab-git-1/C2-Beacon-Detector.git](https://github.com/hab-git-1/C2-Beacon-Detector.git)
+cd C2-Beacon-Detector
+
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
