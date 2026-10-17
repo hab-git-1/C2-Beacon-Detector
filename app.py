@@ -38,6 +38,7 @@ if uploaded_file is not None:
                 y="beacon_score",
                 size="total_requests", 
                 color="beacon_score",
+                range_color=[0.0, 1.0],
                 hover_name="destination",
                 labels={"avg_interval_sec": "Average Interval (Seconds)", "beacon_score": "Beacon Threat Score"},
                 title="C2 Beacon Score vs. Check-in Interval Frequency"
