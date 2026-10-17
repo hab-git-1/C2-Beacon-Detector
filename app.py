@@ -1,52 +1,51 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import plotly.express as px
+from detector import detect_c2_beacons
 
-st.set_page_config(page_title="C2 Beacon Detector", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="C2 Beacon Detector Dashboard", layout="wide")
 
-st.title("🛡️ C2 Beaconing Activity Detector")
-st.markdown("Upload network proxy logs to analyze and detect Command and Control (C2) beacon patterns.")
+st.title("🛡️ C2 Beacon Detector & Threat Hunting Dashboard")
+st.markdown("Analyze network proxy logs for Command and Control (C2) beaconing patterns using statistical periodicity scoring.")
 
-# Sidebar file uploader
-st.sidebar.header("Configuration")
-uploaded_file = st.sidebar.file_uploader("Upload Proxy Log CSV", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload Proxy Log (CSV)", type=["csv"])
+min_score_threshold = st.sidebar.slider("Minimum Threat Score Filter", 0.0, 1.0, 0.50, 0.05)
 
 if uploaded_file is not None:
-    # Load dataset
     df = pd.read_csv(uploaded_file)
-    
-    st.subheader("📄 Raw Log Preview")
-    st.dataframe(df.head(10), use_container_width=True)
+    st.subheader("Raw Log Preview")
+    st.dataframe(df.head(5), use_container_width=True)
 
-    # Process data
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df = df.sort_values(by=['src_ip', 'dest_host', 'timestamp'])
-    df['time_delta'] = df.groupby(['src_ip', 'dest_host'])['timestamp'].diff().dt.total_seconds()
+    with st.spinner("Analyzing traffic patterns and computing threat scores..."):
+        detections = detect_c2_beacons(df)
 
-    metrics = df.groupby(['src_ip', 'dest_host']).agg(
-        total_requests=('timestamp', 'count'),
-        avg_delta=('time_delta', 'mean'),
-        std_delta=('time_delta', 'std'),
-        avg_bytes=('response_bytes', 'mean')
-    ).reset_index()
+    if not detections.empty:
+        filtered = detections[detections['beacon_score'] >= min_score_threshold]
 
-    metrics['std_delta'] = metrics['std_delta'].fillna(9999)
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Endpoints Analyzed", len(detections))
+        col2.metric("Flagged High-Risk Beacons", len(filtered))
+        col3.metric("Max Threat Score Detected", f"{detections['beacon_score'].max():.2f}")
 
-    # Detection Threshold Slider
-    st.sidebar.subheader("Detection Settings")
-    min_reqs = st.sidebar.slider("Min Requests", min_value=2, max_value=20, value=5)
-    max_std = st.sidebar.slider("Max Timing Std Dev (Seconds)", min_value=0.0, max_value=30.0, value=15.0)
+        st.subheader("🎯 Beacon Analysis Results")
+        st.dataframe(filtered, use_container_width=True)
 
-    beacon_candidates = metrics[
-        (metrics['total_requests'] >= min_reqs) &
-        (metrics['std_delta'] <= max_std)
-    ]
+        st.subheader("📈 Threat Distribution Visualization")
+        fig = px.scatter(
+            filtered, 
+            x="avg_interval_sec", 
+            y="beacon_score",
+            size="total_requests", 
+            color="beacon_score",
+            hover_name="destination",
+            labels={"avg_interval_sec": "Average Interval (Seconds)", "beacon_score": "Beacon Threat Score"},
+            title="C2 Beacon Score vs. Check-in Interval Frequency"
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("🚨 Detection Results")
-    if beacon_candidates.empty:
-        st.success("No suspicious beaconing patterns detected based on current thresholds.")
+        csv_data = filtered.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Threat Hunting Report (CSV)", csv_data, "c2_detection_report.csv", "text/csv")
     else:
-        st.warning(f"Potential C2 Beacons Identified: {len(beacon_candidates)}")
-        st.dataframe(beacon_candidates, use_container_width=True)
+        st.info("No suspicious beaconing behavior detected in the uploaded log.")
 else:
-    st.info("👈 Please upload a proxy log CSV file in the sidebar to begin the analysis.")
+    st.info("Please upload a CSV proxy log file to begin analysis.")
