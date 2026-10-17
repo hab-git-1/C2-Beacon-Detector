@@ -47,7 +47,7 @@ if uploaded_file is not None:
             csv_data = filtered.to_csv(index=False).encode('utf-8')
             st.download_button("Download Threat Hunting Report (CSV)", csv_data, "c2_detection_report.csv", "text/csv")
         else:
-            st.warning("⚠️ No endpoints meet the selected minimum threat score filter. Try lowering the threshold slider in the sidebar.")
+            st.warning("No endpoints meet the selected minimum threat score filter. Try lowering the threshold slider in the sidebar.")
     else:
         st.info("No suspicious beaconing behavior detected in the uploaded log.")
 else:
