@@ -42,6 +42,7 @@ if uploaded_file is not None:
                 labels={"avg_interval_sec": "Average Interval (Seconds)", "beacon_score": "Beacon Threat Score"},
                 title="C2 Beacon Score vs. Check-in Interval Frequency"
             )
+            fig.update_yaxes(range=[0, 1.05])
             st.plotly_chart(fig, use_container_width=True)
 
             csv_data = filtered.to_csv(index=False).encode('utf-8')
@@ -52,17 +53,3 @@ if uploaded_file is not None:
         st.info("No suspicious beaconing behavior detected in the uploaded log.")
 else:
     st.info("Please upload a CSV proxy log file to begin analysis.")
-    st.subheader("Threat Distribution Visualization")
-            fig = px.scatter(
-                filtered, 
-                x="avg_interval_sec", 
-                y="beacon_score",
-                size="total_requests", 
-                color="beacon_score",
-                hover_name="destination",
-                labels={"avg_interval_sec": "Average Interval (Seconds)", "beacon_score": "Beacon Threat Score"},
-                title="C2 Beacon Score vs. Check-in Interval Frequency"
-            )
-            # FIX: Force Y-axis to strictly span 0 to 1.05 instead of auto-scaling to 2
-            fig.update_yaxes(range=[0, 1.05])
-            st.plotly_chart(fig, use_container_width=True)
