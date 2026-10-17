@@ -1,51 +1,64 @@
-import argparse
 import pandas as pd
 import numpy as np
 
-def analyze_beacon_traffic(csv_file):
-    print(f"[*] Loading network proxy logs from: {csv_file}")
-    
-    try:
-        df = pd.read_csv(csv_file)
-    except FileNotFoundError:
-        print("[-] Error: Log file not found.")
-        return
+def calculate_shannon_entropy(domain: str) -> float:
+    """Calculates Shannon Entropy to detect Domain Generation Algorithms (DGA)."""
+    if not domain or not isinstance(domain, str):
+        return 0.0
+    domain = domain.split(':')[0].lower()
+    prob = [float(domain.count(c)) / len(domain) for c in set(domain)]
+    return float(-sum(p * np.log2(p) for p in prob))
 
-    # Parse timestamps and sort logs chronologically
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    df = df.sort_values(by=['src_ip', 'dest_host', 'timestamp'])
-    
-    # Calculate time difference (seconds) between consecutive connections
-    df['time_delta'] = df.groupby(['src_ip', 'dest_host'])['timestamp'].diff().dt.total_seconds()
+def detect_c2_beacons(df: pd.DataFrame, time_col='timestamp', host_col='destination', bytes_col='response_size') -> pd.DataFrame:
+    """
+    Advanced C2 Beacon Detection Engine using Coefficient of Variation (CV) 
+    and Multi-Factor Threat Scoring.
+    """
+    if df.empty:
+        return pd.DataFrame()
 
-    # Group and aggregate behavioral metrics per connection pair
-    metrics = df.groupby(['src_ip', 'dest_host']).agg(
-        total_requests=('timestamp', 'count'),
-        avg_delta=('time_delta', 'mean'),
-        std_delta=('time_delta', 'std'),
-        avg_bytes=('response_bytes', 'mean'),
-        std_bytes=('response_bytes', 'std')
-    ).reset_index()
+    df[time_col] = pd.to_datetime(df[time_col])
+    df = df.sort_values(by=[host_col, time_col])
 
-    # Fill NaN values for single connection records
-    metrics['std_delta'] = metrics['std_delta'].fillna(9999)
+    results = []
 
-    # Flag potential C2 beacons
-    beacon_candidates = metrics[
-        (metrics['total_requests'] >= 5) &
-        (metrics['std_delta'] <= 15)
-    ]
+    for host, group in df.groupby(host_col):
+        count = len(group)
+        if count < 5:
+            continue
 
-    print("\n[+] Detection Scan Completed.")
-    if beacon_candidates.empty:
-        print("[!] No suspicious beaconing patterns detected.")
-    else:
-        print("\nALERT: Potential C2 Beacons Identified!\n")
-        print(beacon_candidates[['src_ip', 'dest_host', 'total_requests', 'avg_delta', 'std_delta', 'avg_bytes']])
+        time_deltas = group[time_col].diff().dt.total_seconds().dropna()
+        if len(time_deltas) < 3:
+            continue
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="C2 Beacon Detector using Proxy Logs")
-    parser.add_argument("--log", type=str, default="proxy_logs.csv", help="Path to the proxy log CSV file")
-    args = parser.parse_args()
-    
-    analyze_beacon_traffic(args.log)
+        delta_mean = time_deltas.mean()
+        delta_std = time_deltas.std()
+        
+        timing_cv = (delta_std / delta_mean) if delta_mean > 0 else 1.0
+        bytes_std = group[bytes_col].std() if bytes_col in group.columns else 0.0
+        bytes_mean = group[bytes_col].mean() if bytes_col in group.columns else 0.0
+        bytes_cv = (bytes_std / bytes_mean) if bytes_mean > 0 else 1.0
+
+        entropy = calculate_shannon_entropy(str(host))
+
+        timing_score = max(0.0, 1.0 - timing_cv)
+        payload_score = max(0.0, 1.0 - bytes_cv)
+        count_score = min(1.0, count / 100.0)
+
+        composite_score = round((timing_score * 0.50) + (payload_score * 0.30) + (count_score * 0.20), 2)
+
+        results.append({
+            'destination': host,
+            'total_requests': count,
+            'avg_interval_sec': round(delta_mean, 2),
+            'timing_cv': round(timing_cv, 3),
+            'payload_cv': round(bytes_cv, 3),
+            'domain_entropy': round(entropy, 2),
+            'beacon_score': composite_score
+        })
+
+    results_df = pd.DataFrame(results)
+    if not results_df.empty:
+        results_df = results_df.sort_values(by='beacon_score', ascending=False)
+
+    return results_df
