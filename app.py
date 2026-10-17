@@ -5,7 +5,7 @@ from detector import detect_c2_beacons
 
 st.set_page_config(page_title="C2 Beacon Detector Dashboard", layout="wide")
 
-st.title("🛡️ C2 Beacon Detector & Threat Hunting Dashboard")
+st.title("C2 Beacon Detector & Threat Hunting Dashboard")
 st.markdown("Analyze network proxy logs for Command and Control (C2) beaconing patterns using statistical periodicity scoring.")
 
 uploaded_file = st.sidebar.file_uploader("Upload Proxy Log (CSV)", type=["csv"])
@@ -27,10 +27,10 @@ if uploaded_file is not None:
         col2.metric("Flagged High-Risk Beacons", len(filtered))
         col3.metric("Max Threat Score Detected", f"{detections['beacon_score'].max():.2f}")
 
-        st.subheader("🎯 Beacon Analysis Results")
+        st.subheader("Beacon Analysis Results")
         st.dataframe(filtered, use_container_width=True)
 
-        st.subheader("📈 Threat Distribution Visualization")
+        st.subheader("Threat Distribution Visualization")
         fig = px.scatter(
             filtered, 
             x="avg_interval_sec", 
@@ -44,7 +44,7 @@ if uploaded_file is not None:
         st.plotly_chart(fig, use_container_width=True)
 
         csv_data = filtered.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Threat Hunting Report (CSV)", csv_data, "c2_detection_report.csv", "text/csv")
+        st.download_button("Download Threat Hunting Report (CSV)", csv_data, "c2_detection_report.csv", "text/csv")
     else:
         st.info("No suspicious beaconing behavior detected in the uploaded log.")
 else:
