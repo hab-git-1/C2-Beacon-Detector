@@ -26,6 +26,7 @@ if uploaded_file is not None:
         col1.metric("Total Endpoints Analyzed", len(detections))
         col2.metric("Flagged High-Risk Beacons", len(filtered))
         col3.metric("Max Threat Score Detected", f"{detections['beacon_score'].max():.2f}")
+        
 
         st.subheader("Beacon Analysis Results")
         st.dataframe(filtered, use_container_width=True)
