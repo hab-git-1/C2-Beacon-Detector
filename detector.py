@@ -34,10 +34,12 @@ def detect_c2_beacons(df: pd.DataFrame, time_col='timestamp', host_col='destinat
         delta_mean = time_deltas.mean()
         delta_std = time_deltas.std()
         
-        timing_cv = (delta_std / delta_mean) if delta_mean > 0 else 1.0
+        # Handle zero standard deviation cleanly for rigid intervals
+        timing_cv = (delta_std / delta_mean) if (delta_mean > 0 and not pd.isna(delta_std)) else 0.0
+        
         bytes_std = group[bytes_col].std() if bytes_col in group.columns else 0.0
         bytes_mean = group[bytes_col].mean() if bytes_col in group.columns else 0.0
-        bytes_cv = (bytes_std / bytes_mean) if bytes_mean > 0 else 1.0
+        bytes_cv = (bytes_std / bytes_mean) if (bytes_mean > 0 and not pd.isna(bytes_std)) else 0.0
 
         entropy = calculate_shannon_entropy(str(host))
 
