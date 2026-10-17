@@ -1,8 +1,14 @@
-timestamp,src_ip,dest_host,uri,method,response_bytes
-2026-10-16 10:00:00,192.168.1.50,malicious-c2.com,/api/v1/get,GET,1024
-2026-10-16 10:01:00,192.168.1.50,malicious-c2.com,/api/v1/get,GET,1028
-2026-10-16 10:02:00,192.168.1.50,malicious-c2.com,/api/v1/get,GET,1024
-2026-10-16 10:03:00,192.168.1.50,malicious-c2.com,/api/v1/get,GET,1026
-2026-10-16 10:04:00,192.168.1.50,malicious-c2.com,/api/v1/get,GET,1024
-2026-10-16 10:00:15,192.168.1.50,google.com,/search,GET,45000
-2026-10-16 10:03:45,192.168.1.50,google.com,/images,GET,120000
+timestamp,destination,response_size
+2026-10-17 10:00:00,evil-c2-domain.com,1024
+2026-10-17 10:00:30,evil-c2-domain.com,1024
+2026-10-17 10:01:00,evil-c2-domain.com,1024
+2026-10-17 10:01:30,evil-c2-domain.com,1024
+2026-10-17 10:02:00,evil-c2-domain.com,1024
+2026-10-17 10:02:30,evil-c2-domain.com,1024
+2026-10-17 10:03:00,evil-c2-domain.com,1024
+2026-10-17 10:03:30,evil-c2-domain.com,1024
+2026-10-17 10:04:00,evil-c2-domain.com,1024
+2026-10-17 10:04:30,evil-c2-domain.com,1024
+2026-10-17 10:00:05,google.com,45200
+2026-10-17 10:05:12,google.com,1200
+2026-10-17 10:12:40,google.com,8940
