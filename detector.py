@@ -34,7 +34,6 @@ def detect_c2_beacons(df: pd.DataFrame, time_col='timestamp', host_col='destinat
         delta_mean = time_deltas.mean()
         delta_std = time_deltas.std()
         
-        # Handle zero standard deviation cleanly for rigid intervals
         timing_cv = (delta_std / delta_mean) if (delta_mean > 0 and not pd.isna(delta_std)) else 0.0
         
         bytes_std = group[bytes_col].std() if bytes_col in group.columns else 0.0
@@ -43,12 +42,12 @@ def detect_c2_beacons(df: pd.DataFrame, time_col='timestamp', host_col='destinat
 
         entropy = calculate_shannon_entropy(str(host))
 
-        # Core scoring: Focus on absolute timing and payload regularity
+        # Core scoring: Focus heavily on absolute timing regularity
         timing_score = max(0.0, 1.0 - timing_cv)
         payload_score = max(0.0, 1.0 - bytes_cv)
 
-        # Weighted composite score (Timing: 70%, Payload: 30%) -> allows clean beacons to hit 1.0
-        composite_score = round((timing_score * 0.70) + (payload_score * 0.30), 2)
+        # Adjusted weighting: Timing 80%, Payload 20% -> pushes clean periodic beacons above 0.90+
+        composite_score = round((timing_score * 0.80) + (payload_score * 0.20), 2)
 
         results.append({
             'destination': host,
