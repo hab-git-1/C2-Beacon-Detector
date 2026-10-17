@@ -41,11 +41,12 @@ def detect_c2_beacons(df: pd.DataFrame, time_col='timestamp', host_col='destinat
 
         entropy = calculate_shannon_entropy(str(host))
 
+        # Core scoring: Focus on absolute timing and payload regularity
         timing_score = max(0.0, 1.0 - timing_cv)
         payload_score = max(0.0, 1.0 - bytes_cv)
-        count_score = min(1.0, count / 100.0)
 
-        composite_score = round((timing_score * 0.50) + (payload_score * 0.30) + (count_score * 0.20), 2)
+        # Weighted composite score (Timing: 70%, Payload: 30%) -> allows clean beacons to hit 1.0
+        composite_score = round((timing_score * 0.70) + (payload_score * 0.30), 2)
 
         results.append({
             'destination': host,
