@@ -1,7 +1,6 @@
 # C2 Beacon Detector Web Dashboard
 
-An interactive, web-based proxy log analysis tool designed to detect Command and Control (C2) beaconing behavior (such as regular sleep intervals and uniform response payload sizes). Inspired by threat analysis concepts from Dominic Chell's "Hiding in Plain Sight" talk.
-
+An interactive, web-based proxy log analysis tool designed to detect Command and Control (C2) beaconing behavior (such as regular sleep intervals and uniform response payload sizes). 
 ---
 
 ## Key Features
