@@ -1,16 +1,22 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from detector import analyze_proxy_logs
+from detector import analyze_proxy_logs, LOCAL_IOC_BLOCKLIST
 
 st.set_page_config(page_title="C2 Beacon Detector", layout="wide")
 
 st.title("🛡️ C2 Beacon Detector")
-st.markdown("### Threat Detection Engine for Jittered C2 Channels & Local IOCs")
+st.markdown("### Advanced Threat Detection Engine for Jittered C2 Channels & Offline IOCs")
 
+# Sidebar Configuration
 st.sidebar.header("Configuration")
 uploaded_file = st.sidebar.file_uploader("Upload Network Logs (CSV)", type=["csv"])
 min_score = st.sidebar.slider("Minimum Threat Score Filter", 0.0, 1.0, 0.30, 0.05)
+
+# Interactive IOC Blocklist Viewer in Sidebar
+with st.sidebar.expander("🔍 View Active Local IOCs"):
+    for ioc in sorted(LOCAL_IOC_BLOCKLIST):
+        st.code(ioc)
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -19,6 +25,7 @@ if uploaded_file is not None:
         results_df = analyze_proxy_logs(df)
         filtered_df = results_df[results_df['beacon_score'] >= min_score]
         
+        # Dashboard Metrics
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Endpoints Analyzed", len(results_df))
         col2.metric("Flagged High-Risk Beacons", len(filtered_df))
@@ -27,6 +34,16 @@ if uploaded_file is not None:
         st.subheader("Beacon Analysis Results")
         st.dataframe(filtered_df, use_container_width=True)
         
+        # One-Click CSV Report Export Button
+        csv_data = filtered_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Download Incident Report (CSV)",
+            data=csv_data,
+            file_name="c2_beacon_incident_report.csv",
+            mime="text/csv",
+        )
+        
+        # Threat Distribution Plot
         if not filtered_df.empty:
             st.subheader("Threat Score vs Check-in Frequency")
             fig = px.scatter(
