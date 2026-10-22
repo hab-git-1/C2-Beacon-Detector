@@ -1,54 +1,49 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from detector import detect_c2_beacons
+from src.detector import analyze_proxy_logs
 
-st.set_page_config(page_title="C2 Beacon Detector Dashboard", layout="wide")
+st.set_page_config(page_title="C2 Beacon Detector", layout="wide")
 
-st.title("C2 Beacon Detector & Threat Hunting Dashboard")
-st.markdown("Analyze network proxy logs for Command and Control (C2) beaconing patterns using statistical periodicity scoring.")
+st.title("🛡️ C2 Beacon Detector")
+st.markdown("### Threat Detection Engine for Jittered C2 Channels & Local IOCs")
 
-uploaded_file = st.sidebar.file_uploader("Upload Proxy Log (CSV)", type=["csv"])
-min_score_threshold = st.sidebar.slider("Minimum Threat Score Filter", 0.0, 1.0, 0.50, 0.05)
+st.sidebar.header("Configuration")
+uploaded_file = st.sidebar.file_uploader("Upload Network Logs (CSV)", type=["csv"])
+min_score = st.sidebar.slider("Minimum Threat Score Filter", 0.0, 1.0, 0.30, 0.05)
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.subheader("Raw Log Preview")
-    st.dataframe(df.head(5), use_container_width=True)
-
-    with st.spinner("Analyzing traffic patterns and computing threat scores..."):
-        detections = detect_c2_beacons(df)
-
-    if not detections.empty:
-        filtered = detections[detections['beacon_score'] >= min_score_threshold]
-
-        if not filtered.empty:
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Endpoints Analyzed", len(detections))
-            col2.metric("Flagged High-Risk Beacons", len(filtered))
-            col3.metric("Max Threat Score Detected", f"{detections['beacon_score'].max():.2f}")
-
-            st.subheader("Beacon Analysis Results")
-            st.dataframe(filtered, use_container_width=True)
-
-            st.subheader("Threat Distribution Visualization")
+    
+    try:
+        results_df = analyze_proxy_logs(df)
+        filtered_df = results_df[results_df['beacon_score'] >= min_score]
+        
+        # Dashboard Metrics
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Endpoints Analyzed", len(results_df))
+        col2.metric("Flagged High-Risk Beacons", len(filtered_df))
+        col3.metric("Max Threat Score Detected", f"{results_df['beacon_score'].max():.2f}" if not results_df.empty else "0.00")
+        
+        st.subheader("Beacon Analysis Results")
+        st.dataframe(filtered_df, use_container_width=True)
+        
+        # Threat Distribution Plot
+        if not filtered_df.empty:
+            st.subheader("Threat Score vs Check-in Frequency")
             fig = px.scatter(
-                filtered, 
-                x="avg_interval_sec", 
-                y="beacon_score",
-                size="total_requests", 
-                color="beacon_score",
-                hover_name="destination",
-                labels={"avg_interval_sec": "Average Interval (Seconds)", "beacon_score": "Beacon Threat Score"},
-                title="C2 Beacon Score vs. Check-in Interval Frequency"
+                filtered_df,
+                x='avg_interval_sec',
+                y='beacon_score',
+                color='beacon_score',
+                size='total_requests',
+                hover_name='destination',
+                labels={'avg_interval_sec': 'Average Interval (s)', 'beacon_score': 'Threat Score'},
+                color_continuous_scale='Reds'
             )
             st.plotly_chart(fig, use_container_width=True)
-
-            csv_data = filtered.to_csv(index=False).encode('utf-8')
-            st.download_button("Download Threat Hunting Report (CSV)", csv_data, "c2_detection_report.csv", "text/csv")
-        else:
-            st.warning("No endpoints meet the selected minimum threat score filter. Try lowering the threshold slider in the sidebar.")
-    else:
-        st.info("No suspicious beaconing behavior detected in the uploaded log.")
+            
+    except Exception as e:
+        st.error(f"Error analyzing log file: {e}")
 else:
-    st.info("Please upload a CSV proxy log file to begin analysis.")
+    st.info("Please upload a CSV proxy log in the sidebar to run analysis.")
