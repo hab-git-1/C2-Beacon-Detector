@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from src.detector import analyze_proxy_logs
+from detector import analyze_proxy_logs
 
 st.set_page_config(page_title="C2 Beacon Detector", layout="wide")
 
@@ -19,7 +19,6 @@ if uploaded_file is not None:
         results_df = analyze_proxy_logs(df)
         filtered_df = results_df[results_df['beacon_score'] >= min_score]
         
-        # Dashboard Metrics
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Endpoints Analyzed", len(results_df))
         col2.metric("Flagged High-Risk Beacons", len(filtered_df))
@@ -28,7 +27,6 @@ if uploaded_file is not None:
         st.subheader("Beacon Analysis Results")
         st.dataframe(filtered_df, use_container_width=True)
         
-        # Threat Distribution Plot
         if not filtered_df.empty:
             st.subheader("Threat Score vs Check-in Frequency")
             fig = px.scatter(
