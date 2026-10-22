@@ -1,66 +1,100 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+from scipy.signal import find_peaks
 
-def calculate_shannon_entropy(domain: str) -> float:
-    """Calculates Shannon Entropy to detect Domain Generation Algorithms (DGA)."""
-    if not domain or not isinstance(domain, str):
+def calculate_autocorrelation_score(timestamps):
+    """
+    Computes a periodicity score using autocorrelation on request timestamps.
+    Handles jittered intervals by identifying repeating wave patterns.
+    """
+    if len(timestamps) < 5:
+        return 0.0  # Need a minimum sample size to find patterns
+
+    # Sort timestamps and calculate delta intervals
+    sorted_ts = np.sort(timestamps)
+    intervals = np.diff(sorted_ts)
+    
+    if len(intervals) < 3:
         return 0.0
-    domain = domain.split(':')[0].lower()
-    prob = [float(domain.count(c)) / len(domain) for c in set(domain)]
-    return float(-sum(p * np.log2(p) for p in prob))
 
-def detect_c2_beacons(df: pd.DataFrame, time_col='timestamp', host_col='destination', bytes_col='response_size') -> pd.DataFrame:
+    # Convert intervals into a normalized time series signal
+    # Fill in a regular time grid to compute autocorrelation
+    min_time = sorted_ts[0]
+    max_time = sorted_ts[-1]
+    total_duration = max_time - min_time
+    
+    if total_duration == 0:
+        return 0.0
+
+    # Create a binned density signal over time (e.g., 1-second bins)
+    bins = np.arange(min_time, max_time + 1, 1)
+    if len(bins) < 10:
+        return 0.0
+        
+    hist, _ = np.histogram(sorted_ts, bins=bins)
+    
+    # Compute autocorrelation
+    mean_centered = hist - np.mean(hist)
+    c = np.correlate(mean_centered, mean_centered, mode='full')
+    
+    # Keep only the positive lags
+    half_len = len(c) // 2
+    autocorr = c[half_len:]
+    
+    if np.max(autocorr) == 0:
+        return 0.0
+        
+    # Normalize autocorrelation
+    autocorr = autocorr / autocorr[0]
+    
+    # Find peaks in the autocorrelation function (excluding lag 0)
+    peaks, _ = find_peaks(autocorr[1:], height=0.1)
+    
+    if len(peaks) > 0:
+        # If strong repeating peaks exist, it indicates jittered/regular beaconing
+        peak_strength = np.mean(autocorr[peaks + 1])
+        return float(min(peak_strength, 1.0))
+    
+    return 0.0
+
+def detect_c2_beacons(df):
     """
-    Advanced C2 Beacon Detection Engine using Coefficient of Variation (CV) 
-    and Multi-Factor Threat Scoring.
+    Enhanced detection engine combining Coefficient of Variation (CV), 
+    Shannon Entropy, and Autocorrelation (Jitter defense).
     """
-    if df.empty:
-        return pd.DataFrame()
-
-    df[time_col] = pd.to_datetime(df[time_col])
-    df = df.sort_values(by=[host_col, time_col])
-
     results = []
-
-    for host, group in df.groupby(host_col):
-        count = len(group)
-        if count < 5:
-            continue
-
-        time_deltas = group[time_col].diff().dt.total_seconds().dropna()
-        if len(time_deltas) < 3:
-            continue
-
-        delta_mean = time_deltas.mean()
-        delta_std = time_deltas.std()
+    
+    # Group logs by destination/domain/IP
+    grouped = df.groupby('destination')
+    
+    for destination, group in grouped:
+        timestamps = group['timestamp'].values
+        total_requests = len(timestamps)
         
-        timing_cv = (delta_std / delta_mean) if (delta_mean > 0 and not pd.isna(delta_std)) else 0.0
+        if total_requests < 3:
+            continue
+            
+        # 1. Timing Regularity via Interval CV
+        sorted_ts = np.sort(timestamps)
+        intervals = np.diff(sorted_ts)
+        mean_interval = np.mean(intervals)
+        std_interval = np.std(intervals)
         
-        bytes_std = group[bytes_col].std() if bytes_col in group.columns else 0.0
-        bytes_mean = group[bytes_col].mean() if bytes_col in group.columns else 0.0
-        bytes_cv = (bytes_std / bytes_mean) if (bytes_mean > 0 and not pd.isna(bytes_std)) else 0.0
-
-        entropy = calculate_shannon_entropy(str(host))
-
-        # Core scoring: Focus heavily on absolute timing regularity
-        timing_score = max(0.0, 1.0 - timing_cv)
-        payload_score = max(0.0, 1.0 - bytes_cv)
-
-        # Adjusted weighting: Timing 80%, Payload 20% -> pushes clean periodic beacons above 0.90+
-        composite_score = round((timing_score * 0.80) + (payload_score * 0.20), 2)
-
+        cv = (std_interval / mean_interval) if mean_interval > 0 else 1.0
+        # Lower CV means higher regularity. Convert to a 0-1 score:
+        cv_score = max(0.0, 1.0 - cv)
+        
+        # 2. Jitter Defense via Autocorrelation
+        jitter_score = calculate_autocorrelation_score(timestamps)
+        
+        # 3. Combine scores (giving weight to both strict CV and jitter-tolerant autocorrelation)
+        beacon_score = (0.5 * cv_score) + (0.5 * jitter_score)
+        
         results.append({
-            'destination': host,
-            'total_requests': count,
-            'avg_interval_sec': round(delta_mean, 2),
-            'timing_cv': round(timing_cv, 3),
-            'payload_cv': round(bytes_cv, 3),
-            'domain_entropy': round(entropy, 2),
-            'beacon_score': composite_score
+            'destination': destination,
+            'total_requests': total_requests,
+            'avg_interval_sec': round(mean_interval, 2),
+            'beacon_score': round(beacon_score, 2)
         })
-
-    results_df = pd.DataFrame(results)
-    if not results_df.empty:
-        results_df = results_df.sort_values(by='beacon_score', ascending=False)
-
-    return results_df
+        
+    return pd.DataFrame(results)
